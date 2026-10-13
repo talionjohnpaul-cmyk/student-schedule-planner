@@ -10,17 +10,17 @@ function formatTo12Hour(timeStr) {
   let [hours, minutes] = timeStr.split(":").map(Number);
   const ampm = hours >= 12 ? "PM" : "AM";
   hours = hours % 12;
-  hours = hours ? hours : 12; // Ang '0' ay magiging '12'
+  hours = hours ? hours : 12;
   const formattedHours = hours < 10 ? "0" + hours : hours;
   return `${formattedHours}:${minutes < 10 ? "0" + minutes : minutes} ${ampm}`;
 }
 
-// Load courses on start
 document.addEventListener("DOMContentLoaded", fetchCourses);
 
 async function fetchCourses() {
   try {
     const response = await fetch(API_URL);
+    if (!response.ok) throw new Error("Network response was not ok");
     const courses = await response.json();
 
     const scheduleList = document.getElementById("scheduleList");
@@ -34,7 +34,6 @@ async function fetchCourses() {
 
     courses.forEach((course) => {
       const row = document.createElement("tr");
-      // Gagamitin ang formatTo12Hour function sa display
       const formattedStart = formatTo12Hour(course.start_time);
       const formattedEnd = formatTo12Hour(course.end_time);
 
@@ -110,7 +109,7 @@ async function removeCourse(courseCode) {
       if (response.ok) {
         fetchCourses();
       } else {
-        alert("Biktima ng error sa pagbura.");
+        alert("May error sa pagbura.");
       }
     } catch (error) {
       console.error("Delete error:", error);

@@ -4,16 +4,21 @@ import sqlite3
 import os
 
 app = Flask(__name__)
-# Pinapayagan ang lahat ng requests mula sa Netlify at local
 CORS(app)
 
-# Siguraduhing tama ang kinalalagyan ng database file sa server
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_NAME = os.path.join(BASE_DIR, "database.db")
+DB_NAME = "database.db"
 
-def init_db():
+def get_db_connection():
     try:
         conn = sqlite3.connect(DB_NAME)
+        return conn
+    except Exception as e:
+        print(f"Database Connection Error: {e}")
+        return None
+
+def init_db():
+    conn = get_db_connection()
+    if conn:
         cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS courses (
@@ -27,23 +32,20 @@ def init_db():
         ''')
         conn.commit()
         conn.close()
-    except Exception as e:
-        print(f"Database Init Error: {e}")
 
-# I-run agad ang database creation
+# Initialize DB on load
 init_db()
 
-# Root check
 @app.route('/', methods=['GET'])
 def home():
-    return jsonify({"status": "Backend is running live!"}), 200
+    return jsonify({"status": "Backend is running!"}), 200
 
-# GET API Endpoint
 @app.route('/api/courses', methods=['GET'])
 def get_courses():
     try:
-        init_db() # Siguraduhing may table bago mag-select
-        conn = sqlite3.connect(DB_NAME)
+        conn = get_db_connection()
+        if not conn:
+            return jsonify([]), 200
         cursor = conn.cursor()
         cursor.execute("SELECT course_code, day_of_week, start_time, end_time, room FROM courses")
         rows = cursor.fetchall()
@@ -62,46 +64,44 @@ def get_courses():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# POST API Endpoint
 @app.route('/api/courses', methods=['POST'])
 def add_course():
     try:
         data = request.get_json()
         if not data:
-            return jsonify({"error": "No payload received"}), 400
+            return jsonify({"error": "No data"}), 400
 
-        init_db()
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO courses (course_code, day_of_week, start_time, end_time, room)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (
-            data.get('course_code', ''),
-            data.get('day_of_week', ''),
-            data.get('start_time', ''),
-            data.get('end_time', ''),
-            data.get('room', '')
-        ))
-        conn.commit()
-        conn.close()
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO courses (course_code, day_of_week, start_time, end_time, room)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (
+                data.get('course_code', ''),
+                data.get('day_of_week', ''),
+                data.get('start_time', ''),
+                data.get('end_time', ''),
+                data.get('room', '')
+            ))
+            conn.commit()
+            conn.close()
 
-        return jsonify({"message": "Course added successfully"}), 201
+        return jsonify({"message": "Course added"}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# DELETE API Endpoint
 @app.route('/api/courses/<course_code>', methods=['DELETE'])
 def delete_course(course_code):
     try:
-        init_db()
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM courses WHERE course_code = ?", (course_code,))
-        conn.commit()
-        conn.close()
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM courses WHERE course_code = ?", (course_code,))
+            conn.commit()
+            conn.close()
 
-        return jsonify({"message": "Course deleted successfully"}), 200
+        return jsonify({"message": "Course deleted"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

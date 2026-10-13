@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:5000/api/courses";
+const API_URL = 'https://student-schedule-planner.onrender.com/api/courses';
 
 // Helper function para gawing 12-hour format na may AM/PM ang oras
 function formatTo12Hour(timeStr) {

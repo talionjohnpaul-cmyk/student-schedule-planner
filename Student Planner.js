@@ -1,6 +1,10 @@
-const API_URL = 'https://student-schedule-planner.onrender.com/api/courses';
+// Awtomatikong pumipili ng URL batay sa kung saan mo binuksan ang page
+const API_URL =
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:5000/api/courses"
+    : "https://student-schedule-planner.onrender.com/api/courses";
 
-// Helper function para gawing 12-hour format na may AM/PM ang oras
 function formatTo12Hour(timeStr) {
   if (!timeStr) return "";
   let [hours, minutes] = timeStr.split(":").map(Number);

@@ -1,19 +1,16 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
+import os
 
 app = Flask(__name__)
-CORS(app)
+CORS(app) # Pinapayagan ang lahat ng requests (CORS enabled)
+DB_NAME = "database.db"
 
-def get_db_connection():
-    conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row
-    return conn
-
-# Kusa nitong gagawin ang 'courses' table sa database pagka-start
 def init_db():
-    conn = get_db_connection()
-    conn.execute('''
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS courses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             course_code TEXT NOT NULL,
@@ -26,36 +23,72 @@ def init_db():
     conn.commit()
     conn.close()
 
-# GET: Kunin ang mga courses
+# I-run ang database initialization
+init_db()
+
+# Root test endpoint
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({"status": "Backend is running!"}), 200
+
+# GET lahat ng courses
 @app.route('/api/courses', methods=['GET'])
 def get_courses():
-    conn = get_db_connection()
-    courses = conn.execute('SELECT * FROM courses').fetchall()
-    conn.close()
-    return jsonify([dict(c) for c in courses])
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("SELECT course_code, day_of_week, start_time, end_time, room FROM courses")
+        rows = cursor.fetchall()
+        conn.close()
 
-# POST: Mag-save ng course
+        courses = []
+        for row in rows:
+            courses.append({
+                "course_code": row[0],
+                "day_of_week": row[1],
+                "start_time": row[2],
+                "end_time": row[3],
+                "room": row[4]
+            })
+        return jsonify(courses), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# POST magdagdag ng course
 @app.route('/api/courses', methods=['POST'])
 def add_course():
-    data = request.json
-    conn = get_db_connection()
-    conn.execute(
-        'INSERT INTO courses (course_code, day_of_week, start_time, end_time, room) VALUES (?, ?, ?, ?, ?)',
-        (data['course_code'], data['day_of_week'], data['start_time'], data['end_time'], data['room'])
-    )
-    conn.commit()
-    conn.close()
-    return jsonify({'message': 'Course added successfully'}), 201
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
 
-# DELETE: Magbura ng course
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO courses (course_code, day_of_week, start_time, end_time, room)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (data.get('course_code'), data.get('day_of_week'), data.get('start_time'), data.get('end_time'), data.get('room')))
+        conn.commit()
+        conn.close()
+
+        return jsonify({"message": "Course added successfully"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# DELETE magbura ng course
 @app.route('/api/courses/<course_code>', methods=['DELETE'])
 def delete_course(course_code):
-    conn = get_db_connection()
-    conn.execute('DELETE FROM courses WHERE course_code = ?', (course_code,))
-    conn.commit()
-    conn.close()
-    return jsonify({'message': 'Course deleted successfully'}), 200
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM courses WHERE course_code = ?", (course_code,))
+        conn.commit()
+        conn.close()
+
+        return jsonify({"message": "Course deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    init_db()  # Tawagin ang database setup
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
